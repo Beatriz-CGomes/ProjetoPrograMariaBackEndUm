@@ -4,12 +4,14 @@ const express = require('express');
 // aqui estou configurando a primeira parte da rota
 const router = express.Router();
 
-// biblioteca uuid
-const { v4: uuidv4 } = require('uuid');
+
 
 //ligando o banco de dadsos ao arquivo bando de dados
 const conectaBancoDeDados = require('./bancoDeDados')
 conectaBancoDeDados() // aqui chamando a função que conecta o banco de dados
+
+//trazendo o pacote cors que permite consumir essa api no front-end
+const cors = require('cors')
 
 //regra da criacao e conexao com a regra mulher
 const Mulher = require('./mulherModel')
@@ -17,6 +19,9 @@ const Mulher = require('./mulherModel')
 // aqui estou iniciando o app 
 const app = express();
 app.use(express.json()) //dizendo que estamos tratando as requisições
+
+//liberando o cors
+app.use(cors())
 
 // aqui estou definindo a porta de acesso
 const porta = 3333;
@@ -39,67 +44,76 @@ async function mostraMulheres(request, response) {
 
 // esse é o codigo de POST para criar mais mulheres na lista
 async function criaMulher(request, response) {
-    const novaMulher = {
-        id: uuidv4(),
+    const novaMulher = new Mulher({
+
         nome: request.body.nome,
         imagem: request.body.imagem,
-        minibio: request.body.minibio
+        minibio: request.body.minibio,
+        citacao: request.body.citacao
+    })
+    try {
+        //criação da nova mulher a partir do bando de dados - salva corpo da requisição é a novamulher e guarda na mulhercriada
+        const mulherCriada = await novaMulher.save()
+
+        // função status é para aparecer a resposta criada igual no insonmia
+        response.status().json(mulherCriada)
+
+        //aqui mostra o erro no console
+    } catch (error) {
+        console.log(error)
     }
-
-    //aqui pega para cadastrar outra mulher
-    mulheres.push(novaMulher)
-
-    // aqui recebemos como resposta a lista das mulheres cadastradas atualizada!
-    response.json(mulheres)
 }
 
 //PATCH essa função faz a alteração do nome,imagem ou minibio da lista.
-function corrigiMulher(request, response) {
-    //encontrando a mulher feita pelo id
-    function encontraMulher(mulher) {
-        if (mulher.id === request.params.id) {
-            return mulher
+async function corrigiMulher(request, response) {
+    //aqui a tentativa da alteração da mulher
+    try {
+        //fazendo comunicao com banco e procurando por id 
+        const mulherEncontrada = await Mulher.findById(request.params.id)
+
+        //aqui está permitindo que se tiver uma mudança no corpo da requisição a mudança seja alterada
+        if (request.body.nome) {
+            mulherEncontrada.nome = request.body.nome
         }
+
+        if (request.body.minibio) {
+            mulherEncontrada.minibio = request.body.minibio
+        }
+
+        if (request.body.imagem) {
+            mulherEncontrada.imagem = request.body.imagem
+        }
+
+        if (request.body.citacao) {
+            mulherEncontrada.citacao = request.body.citacao
+        }
+
+        //aqui pedindo para ser salvo no banco de dados
+        const mulherAtualizadaNoBandoDeDados = await mulherEncontrada.save()
+
+        //aqui é a resposta para requisição
+        response.json(mulherAtualizadaNoBandoDeDados)
+
+
+    } catch (error) {
+        console.log(error)
     }
-
-    //aqui está buscando a lista inicial e está guardando a resposta na const mulherEncontrada
-    const mulherEncontrada = mulheres.find(encontraMulher)
-
-    //aqui está permitindo que se tiver uma mudança no corpo da requisição a mudança seja alterada
-
-    if (request.body.nome) {
-        mulherEncontrada.nome = request.body.nome
-    }
-
-    if (request.body.minibio) {
-        mulherEncontrada.minibio = request.body.minibio
-    }
-
-    if (request.body.imagem) {
-        mulherEncontrada.imagem = request.body.imagem
-    }
-
-    response.json(mulheres)
-
 }
 
 
 //DELETAR iremos deletar pelo id
-function deletaMulher(request, response) {
-    function todasMenosEla(mulher) {
-        if (mulher.id !== request.params.id) {
-            return mulher
-        }
+async function deletaMulher(request, response) {
+    try {
+        await Mulher.findByIdAndDelete(request.params.id)
+
+        //resposta que foi deletada com sucesso
+        response.json({ mensagem: 'mulher deletada com sucesso' })
+
+    } catch (error) {
+        console.log(error)
     }
-    //filtrando as mulheres que permaneceram na lista
-    const mulheresQueFicaram = mulheres.filter(todasMenosEla)
-    //aqui está retornando todas as mulheres que ficaram
-    response.json(mulheresQueFicaram)
+
 }
-
-
-
-
 
 // essa é a função para pegar a porta
 function mostraPorta() {
